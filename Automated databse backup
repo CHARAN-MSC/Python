@@ -1,0 +1,27 @@
+
+import boto3
+import subprocess
+from datetime import datetime
+
+# Initialize boto3 client
+s3_client = boto3.client('s3')
+
+# Define S3 bucket name and database details
+BUCKET_NAME = 'your-bucket-name'
+DB_NAME = 'your-database-name'
+DB_USER = 'your-database-user'
+DB_PASSWORD = 'your-database-password'
+BACKUP_FILE = f"/tmp/{DB_NAME}_backup_{datetime.now().strftime('%Y%m%d%H%M%S')}.sql"
+
+def backup_database():
+    # Dump the database to a file
+    dump_command = f"mysqldump -u {DB_USER} -p{DB_PASSWORD} {DB_NAME} > {BACKUP_FILE}"
+    subprocess.run(dump_command, shell=True, check=True)
+    
+    # Upload the backup file to S3
+    s3_client.upload_file(BACKUP_FILE, BUCKET_NAME, BACKUP_FILE.split('/')[-1])
+    
+    print(f"Backup of {DB_NAME} completed and uploaded to S3.")
+
+if __name__ == '__main__':
+    backup_database()
