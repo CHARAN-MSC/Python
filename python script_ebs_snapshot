@@ -1,0 +1,44 @@
+
+import boto3
+from datetime import datetime, timezone
+
+# Initialize boto3 clients
+ec2_client = boto3.client('ec2')
+sns_client = boto3.client('sns')
+
+# Define the SNS topic ARN
+SNS_TOPIC_ARN = 'arn:aws:sns:your-region:your-account-id:your-topic-name'
+
+def lambda_handler(event, context):
+    # Get all snapshots
+    snapshots = ec2_client.describe_snapshots(OwnerIds=['self'])['Snapshots']
+    
+    # Get current time
+    current_time = datetime.now(timezone.utc)
+    
+    # List to store unused snapshots
+    unused_snapshots = []
+    
+    for snapshot in snapshots:
+        # Calculate the age of the snapshot
+        snapshot_age = (current_time - snapshot['StartTime']).days
+        
+        # Check if the snapshot is older than a certain threshold (e.g., 30 days)
+        if snapshot_age > 30:
+            # Check if the snapshot is not associated with any volumes
+            if not snapshot['VolumeId']:
+                unused_snapshots.append(snapshot['SnapshotId'])
+    
+    # If there are unused snapshots, send a notification
+    if unused_snapshots:
+        message = f"Unused EBS Snapshots detected: {', '.join(unused_snapshots)}"
+        sns_client.publish(
+            TopicArn=SNS_TOPIC_ARN,
+            Message=message,
+            Subject='Unused EBS Snapshots Notification'
+        )
+    
+    return {
+        'statusCode': 200,
+        'body': f"Checked {len(snapshots)} snapshots. Found {len(unused_snapshots)} unused snapshots."
+    }
