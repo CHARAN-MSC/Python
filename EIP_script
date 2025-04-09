@@ -1,0 +1,35 @@
+
+import boto3
+
+# Initialize boto3 clients
+ec2_client = boto3.client('ec2')
+sns_client = boto3.client('sns')
+
+# Define the SNS topic ARN
+SNS_TOPIC_ARN = 'arn:aws:sns:your-region:your-account-id:your-topic-name'
+
+def lambda_handler(event, context):
+    # Get all Elastic IPs
+    addresses = ec2_client.describe_addresses()['Addresses']
+    
+    # List to store unused EIPs
+    unused_eips = []
+    
+    for address in addresses:
+        # Check if the Elastic IP is not associated with any instance
+        if 'InstanceId' not in address:
+            unused_eips.append(address['PublicIp'])
+    
+    # If there are unused EIPs, send a notification
+    if unused_eips:
+        message = f"Unused Elastic IPs detected: {', '.join(unused_eips)}"
+        sns_client.publish(
+            TopicArn=SNS_TOPIC_ARN,
+            Message=message,
+            Subject='Unused Elastic IPs Notification'
+        )
+    
+    return {
+        'statusCode': 200,
+        'body': f"Checked {len(addresses)} Elastic IPs. Found {len(unused_eips)} unused Elastic IPs."
+    }
