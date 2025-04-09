@@ -1,0 +1,42 @@
+
+import boto3
+from datetime import datetime, timezone, timedelta
+
+# Initialize boto3 client
+s3_client = boto3.client('s3')
+
+# Define the S3 bucket name
+BUCKET_NAME = 'your-bucket-name'
+
+def lambda_handler(event, context):
+    # Get the current time
+    current_time = datetime.now(timezone.utc)
+    
+    # Define the age threshold (e.g., 90 days)
+    age_threshold = current_time - timedelta(days=90)
+    
+    # List all objects in the bucket
+    objects = s3_client.list_objects_v2(Bucket=BUCKET_NAME)['Contents']
+    
+    # List to store old objects
+    old_objects = []
+    
+    for obj in objects:
+        # Get the object's last modified time
+        last_modified = obj['LastModified']
+        
+        # Check if the object is older than the threshold
+        if last_modified < age_threshold:
+            old_objects.append({'Key': obj['Key']})
+    
+    # Delete old objects
+    if old_objects:
+        s3_client.delete_objects(
+            Bucket=BUCKET_NAME,
+            Delete={'Objects': old_objects}
+        )
+    
+    return {
+        'statusCode': 200,
+        'body': f"Checked {len(objects)} objects. Deleted {len(old_objects)} old objects."
+    }
