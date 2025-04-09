@@ -1,0 +1,35 @@
+
+from kubernetes import client, config
+
+# Load Kubernetes configuration
+config.load_kube_config()
+
+# Initialize Kubernetes API client
+v1 = client.CoreV1Api()
+
+def check_pod_resources():
+    # Get all pods in the default namespace
+    pods = v1.list_namespaced_pod(namespace='default')
+    
+    underutilized_pods = []
+    
+    for pod in pods.items:
+        # Get pod resource usage
+        usage = v1.read_namespaced_pod_status(pod.metadata.name, 'default').status.container_statuses[0].resources
+        
+        # Check if the pod is underutilizing its resources
+        if usage.requests['cpu'] < '100m' and usage.requests['memory'] < '100Mi':
+            underutilized_pods.append(pod.metadata.name)
+    
+    return underutilized_pods
+
+def main():
+    underutilized_pods = check_pod_resources()
+    
+    if underutilized_pods:
+        print(f"Underutilized pods detected: {', '.join(underutilized_pods)}")
+    else:
+        print("No underutilized pods detected.")
+
+if __name__ == '__main__':
+    main()
